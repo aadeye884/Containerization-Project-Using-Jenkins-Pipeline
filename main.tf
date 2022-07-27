@@ -274,8 +274,8 @@ resource "aws_security_group" "PAP_DB_SG" {
 
 # Instance Keypair
 resource "aws_key_pair" "server_keypair" {
-  key_name   = var.keypair_name
-  public_key = file(var.public_key)
+  key_name   = var.server_keypair
+  public_key = file(var.publickey_path)
 }
 
 # Jenkins Server
@@ -352,6 +352,17 @@ EOF
   }
 }
 
+# Create Data Resource for for Docker-IP
+data "aws_instance" "PAP_Docker_Host" {
+  filter {
+    name   = "tag:Name"
+    values = ["PAP_Docker_Host"]
+  }
+  depends_on = [
+    aws_instance.PAP_Docker_Host
+  ]
+}
+
 # Ansible Host
 resource "aws_instance" "PAP_Ansible_Host" {
   ami                         = var.PAP-ami
@@ -372,32 +383,28 @@ pip3 install ansible --user
 sudo chown ec2-user:ec2-user /etc/ansible
 sudo yum install -y http://mirror.centos.org/centos/7/extras/x86_64/Packages/sshpass-1.06-2.el7.x86_64.rpm
 sudo yum install sshpass -y
-echo "license_key: eu01xxc875439fe02e1835e440a064914a51NRAL" | sudo tee -a /etc/newrelic-infra.yml
-sudo curl -o /etc/yum.repos.d/newrelic-infra.repo https://download.newrelic.com/infrastructure_agent/linux/yum/el/7/x86_64/newrelic-infra.repo
-sudo yum -q makecache -y --disablerepo='*' --enablerepo='newrelic-infra'
-sudo yum install newrelic-infra -y
 sudo su
 echo Admin123@ | passwd ec2-user --stdin
 echo "ec2-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 sed -ie 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
 sudo service sshd reload
-sudo chmod -R 700 .ssh/
-sudo chown -R ec2-user:ec2-user .ssh/
-sudo su - ec2-user -c "ssh-keygen -f ~/.ssh/ansiblekeypair_rsa -t rsa -N ''"
+su ec2-user
+sudo su - ec2-user -c "ssh-keygen -f ~/.ssh/server_keypairpanskey_rsa -t rsa -N ''"
 sudo bash -c ' echo "StrictHostKeyChecking No" >> /etc/ssh/ssh_config'
-sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/ansiblekeypair_rsa.pub ec2-user@${data.aws_instance.PAP_Docker_Host.public_ip} -p 22'
-ssh-copy-id -i /home/ec2-user/.ssh/ansiblekeypair_rsa.pub ec2-user@localhost -p 22
+sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/server_keypairpanskey_rsa.pub ec2-user@${data.aws_instance.PAP_Docker_Host.public_ip} -p 22'
+ssh-copy-id -i /home/ec2-user/.ssh/server_keypairpanskey_rsa.pub ec2-user@localhost -p 22
 sudo yum install -y yum-utils
 sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 sudo yum install docker-ce -y
 sudo systemctl start docker
+sudo systemctl enable docker
 sudo usermod -aG docker ec2-user
 cd /etc
 sudo chown ec2-user:ec2-user hosts
 cat <<EOT>> /etc/ansible/hosts
 localhost ansible_connection=local
 [docker_host]
-${data.aws_instance.PAP_Docker_Host.public_ip}  ansible_ssh_private_key_file=/home/ec2-user/.ssh/ansiblekeypair_rsa
+${data.aws_instance.PAP_Docker_Host.public_ip}  ansible_ssh_private_key_file=/home/ec2-user/.ssh/server_keypairpanskey_rsa
 EOT
 sudo mkdir /opt/docker
 sudo chown -R ec2-user:ec2-user /opt/docker
@@ -410,8 +417,6 @@ FROM openjdk:8-jre-slim
 #copy war file on the container
 COPY spring-petclinic-2.4.2.war app/
 WORKDIR app/
-RUN pwd
-RUN ls -al
 ENTRYPOINT [ "java", "-jar", "spring-petclinic-2.4.2.war", "--server.port=8085"]
 EOT
 touch /opt/docker/docker-image.yml
@@ -420,17 +425,22 @@ cat <<EOT>> /opt/docker/docker-image.yml
  - hosts: localhost
   #root access to user
    become: true
+
    tasks:
    - name: login to dockerhub
      command: docker login -u cloudhight -p CloudHight_Admin123@
+
    - name: Create docker image from Pet Adoption war file
      command: docker build -t pet-adoption-image .
      args:
        chdir: /opt/docker
+
    - name: Add tag to image
      command: docker tag pet-adoption-image cloudhight/pet-adoption-image
+
    - name: Push image to docker hub
      command: docker push cloudhight/pet-adoption-image
+
    - name: Remove docker image from Ansible node
      command: docker rmi pet-adoption-image cloudhight/pet-adoption-image
      ignore_errors: yes
@@ -440,21 +450,27 @@ cat <<EOT>> /opt/docker/docker-container.yml
 ---
  - hosts: docker_host
    become: true
+
    tasks:
    - name: login to dockerhub
      command: docker login -u cloudhight -p CloudHight_Admin123@
+
    - name: Stop any container running
      command: docker stop pet-adoption-container
      ignore_errors: yes
+
    - name: Remove stopped container
      command: docker rm pet-adoption-container
      ignore_errors: yes
+
    - name: Remove docker image
      command: docker rmi cloudhight/pet-adoption-image
      ignore_errors: yes
+
    - name: Pull docker image from dockerhub
      command: docker pull cloudhight/pet-adoption-image
      ignore_errors: yes
+
    - name: Create container from pet adoption image
      command: docker run -it -d --name pet-adoption-container -p 8080:8085 cloudhight/pet-adoption-image
      ignore_errors: yes
@@ -474,31 +490,11 @@ cat << EOT > /opt/docker/newrelic.yml
                      --pid=host \
                      -v "/:/host:ro" \
                      -v "/var/run/docker.sock:/var/run/docker.sock" \
-                     -e NRIA_LICENSE_KEY=eu01xxc875439fe02e1835e440a064914a51NRAL \
+                     -e NRIA_LICENSE_KEY=c32625464fc4f6eae500b09fa88fe0c93434NRAL \
                      newrelic/infrastructure:latest
 EOT
   EOF
   tags = {
     Name = "PAP_Ansible_Host"
   }
-}
-
-# Route 53 Hosted Zone
-resource "aws_route53_zone" "PAP_zone" {
-  name          = var.domain_name
-  force_destroy = true
-}
-
-# Route 53 A Record
-resource "aws_route53_record" "PAP_domain" {
-  zone_id = aws_route53_zone.PAP_zone.zone_id
-  name    = var.domain_name
-  type    = "A"
-  ttl     = "300" # (Use when not associating route53 to a load balancer)
-  records = [aws_instance.PAP_Jenkins.public_ip]
-  # alias {
-  #   name                   = aws_lb.PAP-alb.dns_name
-  #    zone_id                = aws_lb.PAP-alb.zone_id
-  #    evaluate_target_health = false
-  #  }
 }

@@ -14,26 +14,11 @@ variable "instance_type_Docker" {
 variable "instance_type_Ansible" {
   default = "t2.micro"
 }
-variable "public_key" {
-  default = "~/PetAdoption_Project1/server_key.pub"
+variable "publickey_path" {
+  default = "~/cloud_devops/PetAdoption_Project1/server_keypair.pub"
 }
-variable "keypair_name" {
+variable "server_keypair" {
   default = "server_keypair"
-}
-variable "db_name" {
-  default     = "elizabethfolzgroupdb"
-  description = "Database name"
-}
-variable "db_username" {
-  default     = "admin"
-  description = "Database username"
-}
-variable "db_password" {
-  default     = "Admin123"
-  description = "Database password"
-}
-variable "domain_name" {
-  default = "www.elizabethfolzgroup.com"
 }
 variable "VPC_cidr_block" {
   default     = "10.0.0.0/16"
