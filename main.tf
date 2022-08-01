@@ -4,7 +4,7 @@ resource "aws_vpc" "PAP_VPC" {
   instance_tenancy = "default"
 
   tags = {
-    Name = "PAP_VPC"
+    Name = var.VPC_tag_name
   }
 }
 
@@ -95,12 +95,12 @@ resource "aws_eip" "PAP_EIP" {
 }
 
 #Custom NAT Gateway
-resource "aws_nat_gateway" "PAP_NGW" {
+resource "aws_nat_gateway" "PAP_NAT" {
   allocation_id = aws_eip.PAP_EIP.id
   subnet_id     = aws_subnet.PAP_Public_SN1.id
 
   tags = {
-    Name = "PAP_NGW"
+    Name = "PAP_NAT"
   }
 }
 
@@ -110,7 +110,7 @@ resource "aws_route_table" "PAP_Private_RT" {
 
   route {
     cidr_block     = var.private_routetable_cidr_block
-    nat_gateway_id = aws_nat_gateway.PAP_NGW.id
+    nat_gateway_id = aws_nat_gateway.PAP_NAT.id
   }
 
   tags = {
@@ -137,7 +137,7 @@ resource "aws_security_group" "PAP_Jenkins_SG" {
   vpc_id      = aws_vpc.PAP_VPC.id
 
   ingress {
-    description = "SSH"
+    description = "SSH From VPC"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -145,7 +145,7 @@ resource "aws_security_group" "PAP_Jenkins_SG" {
   }
 
   ingress {
-    description = "JenkinsPort"
+    description = "JenkinsPort From VPC"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
@@ -171,7 +171,7 @@ resource "aws_security_group" "PAP_Docker_SG" {
   vpc_id      = aws_vpc.PAP_VPC.id
 
   ingress {
-    description = "HTTP"
+    description = "Allow HTTP access"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -179,7 +179,7 @@ resource "aws_security_group" "PAP_Docker_SG" {
   }
 
   ingress {
-    description = "SSH"
+    description = "Allow SSH access"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -187,7 +187,7 @@ resource "aws_security_group" "PAP_Docker_SG" {
   }
 
   ingress {
-    description = "DockerPort"
+    description = "Proxy from VPC"
     from_port   = 8085
     to_port     = 8085
     protocol    = "tcp"
@@ -199,6 +199,7 @@ resource "aws_security_group" "PAP_Docker_SG" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 
   tags = {
@@ -212,14 +213,6 @@ resource "aws_security_group" "PAP_Ansible_SG" {
   vpc_id      = aws_vpc.PAP_VPC.id
 
   ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
     description = "SSH"
     from_port   = 22
     to_port     = 22
@@ -228,7 +221,7 @@ resource "aws_security_group" "PAP_Ansible_SG" {
   }
 
   ingress {
-    description = "JenkinsPort"
+    description = "Proxy from VPC"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
@@ -246,35 +239,35 @@ resource "aws_security_group" "PAP_Ansible_SG" {
     Name = "PAP_Ansible_SG"
   }
 }
-resource "aws_security_group" "PAP_DB_SG" {
-  name        = "PAP_DB_SG"
-  description = "Allow TLS inbound traffic"
-  vpc_id      = aws_vpc.PAP_VPC.id
+# resource "aws_security_group" "PAP_DB_SG" {
+#   name        = "PAP_DB_SG"
+#   description = "Allow TLS inbound traffic"
+#   vpc_id      = aws_vpc.PAP_VPC.id
 
-  ingress {
-    description = "SSH from VPC"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
-  }
+#   ingress {
+#     description = "SSH from VPC"
+#     from_port   = 22
+#     to_port     = 22
+#     protocol    = "tcp"
+#     cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
+#   }
 
-  egress {
-    description = "HTTP"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+#   egress {
+#     description = "HTTP"
+#     from_port   = 0
+#     to_port     = 0
+#     protocol    = "-1"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
 
-  tags = {
-    Name = "PAP_DB_SG"
-  }
-}
+#   tags = {
+#     Name = "PAP_DB_SG"
+#   }
+# }
 
 # Instance Keypair
 resource "aws_key_pair" "server_keypair" {
-  key_name   = var.server_keypair
+  key_name   = var.keypair
   public_key = file(var.publickey_path)
 }
 
@@ -282,34 +275,38 @@ resource "aws_key_pair" "server_keypair" {
 resource "aws_instance" "PAP_Jenkins_Host" {
   ami                         = var.PAP-ami
   instance_type               = var.instance_type_Jenkins
-  vpc_security_group_ids      = [aws_security_group.PAP_Jenkins_SG.id]
+  vpc_security_group_ids      = ["${aws_security_group.PAP_Jenkins_SG.id}"]
   subnet_id                   = aws_subnet.PAP_Public_SN1.id
   key_name                    = aws_key_pair.server_keypair.key_name
+  availability_zone           = var.public_subnet1_availabilityzone
   associate_public_ip_address = true
   user_data                   = <<-EOF
   #!/bin/bash
   sudo yum update -y
-  sudo yum upgrade -y
   sudo yum install wget -y
   sudo yum install git -y
+  sudo yum install maven -y
   sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
   sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+  sudo yum update -y
+  sudo yum upgrade -y
   sudo yum install jenkins java-1.8.0-openjdk-devel -y --nobest
-  sudo systemctl daemon-reload
   sudo systemctl start jenkins
-#  sudo yum install -y yum-utils
-#  sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-#  sudo yum install docker-ce -y
-#  sudo systemctl start docker
+  sudo systemctl enable jenkins
   echo "license_key:c32625464fc4f6eae500b09fa88fe0c93434NRAL" | sudo tee -a /etc/newrelic-infra.yml
   sudo curl -o /etc/yum.repos.d/newrelic-infra.repo https://download.newrelic.com/infrastructure_agent/linux/yum/el/7/x86_64/newrelic-infra.repo
   sudo yum -q makecache -y --disablerepo='*' --enablerepo='newrelic-infra'
   sudo yum install newrelic-infra -y
-#  sudo usermod -aG docker jenkins
-#  sudo usermod -aG docker jenkins ec2-user
-  sudo yum install maven -y
-  sudo service sshd restart
-EOF
+  sudo yum install sshpass -y
+  sudo su
+  echo Admin123@ | passwd ec2-user --stdin
+  echo "ec2-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+  sudo sed -ie 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+  sudo service sshd reload
+  su - ec2-user -c "ssh-keygen -f ~/.ssh/PAPUSTjenkey_rsa -t rsa -b 4096 -m PEM -N ''"
+  sudo bash -c ' echo "StrictHostKeyChecking No" >> /etc/ssh/ssh_config'
+  sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/PAPUSTjenkey_rsa.pub ec2-user@${data.aws_instance.PAP_Ansible_IP.public_ip} -p 22'
+  EOF
 
   tags = {
     Name = "PAP_Jenkins_Host"
@@ -321,8 +318,9 @@ resource "aws_instance" "PAP_Docker_Host" {
   ami                         = var.PAP-ami
   instance_type               = var.instance_type_Docker
   subnet_id                   = aws_subnet.PAP_Public_SN1.id
-  vpc_security_group_ids      = [aws_security_group.PAP_Docker_SG.id]
+  vpc_security_group_ids      = ["${aws_security_group.PAP_Docker_SG.id}"]
   key_name                    = aws_key_pair.server_keypair.key_name
+  availability_zone           = var.public_subnet1_availabilityzone
   associate_public_ip_address = true
   user_data                   = <<-EOF
 #!/bin/bash
@@ -334,17 +332,19 @@ sudo yum install docker-ce -y
 sudo systemctl start docker
 sudo systemctl enable docker
 echo Admin123@ | passwd ec2-user --stdin
-echo "ansible_admin ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+echo "ec2-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 sudo bash -c ' echo "StrictHostKeyChecking No" >> /etc/ssh/ssh_config'
 sed -ie 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
 sudo service sshd reload
 su - ec2-user
+# sudo chmod -R 700 .ssh/
+# sudo chmod 600 .ssh/authorized_keys
 echo "license_key: c32625464fc4f6eae500b09fa88fe0c93434NRAL" | sudo tee -a /etc/newrelic-infra.yml
 sudo curl -o /etc/yum.repos.d/newrelic-infra.repo https://download.newrelic.com/infrastructure_agent/linux/yum/el/7/x86_64/newrelic-infra.repo
 sudo yum -q makecache -y --disablerepo='*' --enablerepo='newrelic-infra'
 sudo yum install newrelic-infra -y
 sudo usermod -aG docker ec2-user
-sudo hostnamectl set-hostname docker  
+docker run hello-world
 EOF
 
   tags = {
@@ -353,13 +353,24 @@ EOF
 }
 
 # Create Data Resource for for Docker-IP
-data "aws_instance" "PAP_Docker_Host" {
+data "aws_instance" "PAP_Docker_IP" {
   filter {
     name   = "tag:Name"
     values = ["PAP_Docker_Host"]
   }
   depends_on = [
-    aws_instance.PAP_Docker_Host
+    aws_instance.PAP_Docker_Host,
+  ]
+}
+
+# Create Data Resource for Ansible-IP
+data "aws_instance" "PAP_Ansible_IP" {
+  filter {
+    name   = "tag:Name"
+    values = ["PAP_Ansible_Host"]
+  }
+  depends_on = [
+    aws_instance.PAP_Ansible_Host,
   ]
 }
 
@@ -368,8 +379,9 @@ resource "aws_instance" "PAP_Ansible_Host" {
   ami                         = var.PAP-ami
   instance_type               = var.instance_type_Ansible
   subnet_id                   = aws_subnet.PAP_Public_SN1.id
-  vpc_security_group_ids      = [aws_security_group.PAP_Ansible_SG.id]
+  vpc_security_group_ids      = ["${aws_security_group.PAP_Ansible_SG.id}"]
   key_name                    = aws_key_pair.server_keypair.key_name
+  availability_zone           = var.public_subnet1_availabilityzone 
   associate_public_ip_address = true
   user_data                   = <<-EOF
 #!/bin/bash
@@ -380,7 +392,6 @@ sudo alternatives --set python /usr/bin/python3.8
 sudo yum -y install python3-pip
 sudo yum install ansible -y
 pip3 install ansible --user
-sudo chown ec2-user:ec2-user /etc/ansible
 sudo yum install -y http://mirror.centos.org/centos/7/extras/x86_64/Packages/sshpass-1.06-2.el7.x86_64.rpm
 sudo yum install sshpass -y
 sudo su
@@ -389,10 +400,12 @@ echo "ec2-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 sed -ie 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
 sudo service sshd reload
 su ec2-user
+# sudo chown -R ec2-user:ec2-user/.ssh/authorized_keys
+# sudo chmod 600 /home/ec2-user/.ssh/authorized_keys
+# sudo chown ec2-user:ec2-user/etc/ansible
 sudo su - ec2-user -c "ssh-keygen -f ~/.ssh/server_keypairpanskey_rsa -t rsa -N ''"
 sudo bash -c ' echo "StrictHostKeyChecking No" >> /etc/ssh/ssh_config'
-sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/server_keypairpanskey_rsa.pub ec2-user@${data.aws_instance.PAP_Docker_Host.public_ip} -p 22'
-ssh-copy-id -i /home/ec2-user/.ssh/server_keypairpanskey_rsa.pub ec2-user@localhost -p 22
+sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/server_keypairpanskey_rsa.pub ec2-user@${data.aws_instance.PAP_Docker_IP.public_ip} -p 22'
 sudo yum install -y yum-utils
 sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 sudo yum install docker-ce -y
@@ -404,18 +417,19 @@ sudo chown ec2-user:ec2-user hosts
 cat <<EOT>> /etc/ansible/hosts
 localhost ansible_connection=local
 [docker_host]
-${data.aws_instance.PAP_Docker_Host.public_ip}  ansible_ssh_private_key_file=/home/ec2-user/.ssh/server_keypairpanskey_rsa
+${data.aws_instance.PAP_Docker_IP.public_ip}  ansible_ssh_private_key_file=/home/ec2-user/.ssh/server_keypairpanskey_rsa
 EOT
-sudo mkdir /opt/docker
-sudo chown -R ec2-user:ec2-user /opt/docker
+sudo chown -R ec2-user:ec2-user /opt/
 sudo chmod -R 700 /opt/docker
+sudo mkdir /opt/docker
+sudo chmod 700 home/ec2-user/opt/docker
 touch /opt/docker/Dockerfile
 cat <<EOT>> /opt/docker/Dockerfile
 # pull tomcat image from docker hub
 FROM tomcat
-FROM openjdk:8-jre-slim
+FROM openjdk
 #copy war file on the container
-COPY spring-petclinic-2.4.2.war app/
+COPY ./spring-petclinic-2.4.2.war app/
 WORKDIR app/
 ENTRYPOINT [ "java", "-jar", "spring-petclinic-2.4.2.war", "--server.port=8085"]
 EOT

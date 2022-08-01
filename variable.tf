@@ -17,12 +17,16 @@ variable "instance_type_Ansible" {
 variable "publickey_path" {
   default = "~/cloud_devops/PetAdoption_Project1/server_keypair.pub"
 }
-variable "server_keypair" {
+variable "keypair" {
   default = "server_keypair"
 }
 variable "VPC_cidr_block" {
   default     = "10.0.0.0/16"
   description = "custom VPC cidr block"
+}
+variable "VPC_tag_name" {
+  default     = "PAP_VPC"
+  description = "custom VPC tag name"
 }
 variable "public_subnet1_cidr_block" {
   default     = "10.0.1.0/24"
