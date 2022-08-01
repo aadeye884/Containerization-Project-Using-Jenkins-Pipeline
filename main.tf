@@ -195,10 +195,10 @@ resource "aws_security_group" "PAP_Docker_SG" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
   }
 
@@ -381,7 +381,7 @@ resource "aws_instance" "PAP_Ansible_Host" {
   subnet_id                   = aws_subnet.PAP_Public_SN1.id
   vpc_security_group_ids      = ["${aws_security_group.PAP_Ansible_SG.id}"]
   key_name                    = aws_key_pair.server_keypair.key_name
-  availability_zone           = var.public_subnet1_availabilityzone 
+  availability_zone           = var.public_subnet1_availabilityzone
   associate_public_ip_address = true
   user_data                   = <<-EOF
 #!/bin/bash
