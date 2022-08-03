@@ -186,7 +186,7 @@ resource "aws_security_group" "PAP_Docker_SG" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
+    ingress {
     description = "Proxy from VPC"
     from_port   = 8085
     to_port     = 8085
@@ -303,9 +303,9 @@ resource "aws_instance" "PAP_Jenkins_Host" {
   echo "ec2-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
   sudo sed -ie 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
   sudo service sshd reload
-  su - ec2-user -c "ssh-keygen -f ~/.ssh/PAPUSTjenkey_rsa -t rsa -b 4096 -m PEM -N ''"
+  su - ec2-user -c "ssh-keygen -f ~/.ssh/server_keypairjenkey_rsa -t rsa -b 4096 -m PEM -N ''"
   sudo bash -c ' echo "StrictHostKeyChecking No" >> /etc/ssh/ssh_config'
-  sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/PAPUSTjenkey_rsa.pub ec2-user@${data.aws_instance.PAP_Ansible_IP.public_ip} -p 22'
+  sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/server_keypairjenkey_rsa.pub ec2-user@${data.aws_instance.PAP_Ansible_IP.public_ip} -p 22'
   EOF
 
   tags = {
@@ -419,7 +419,7 @@ localhost ansible_connection=local
 [docker_host]
 ${data.aws_instance.PAP_Docker_IP.public_ip}  ansible_ssh_private_key_file=/home/ec2-user/.ssh/server_keypairpanskey_rsa
 EOT
-sudo chown -R ec2-user:ec2-user /opt/
+sudo chown -R ec2-user:ec2-user /opt/docker
 sudo chmod -R 700 /opt/docker
 sudo mkdir /opt/docker
 sudo chmod 700 home/ec2-user/opt/docker
@@ -428,6 +428,7 @@ cat <<EOT>> /opt/docker/Dockerfile
 # pull tomcat image from docker hub
 FROM tomcat
 FROM openjdk
+LABEL MAINTAINER PAP
 #copy war file on the container
 COPY ./spring-petclinic-2.4.2.war app/
 WORKDIR app/
