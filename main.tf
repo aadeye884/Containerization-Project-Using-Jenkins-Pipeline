@@ -186,7 +186,7 @@ resource "aws_security_group" "PAP_Docker_SG" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-    ingress {
+  ingress {
     description = "Proxy from VPC"
     from_port   = 8085
     to_port     = 8085
