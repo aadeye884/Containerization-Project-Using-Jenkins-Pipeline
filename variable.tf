@@ -68,3 +68,6 @@ variable "private_routetable_cidr_block" {
   default     = "0.0.0.0/0"
   description = "private route table cidr block"
 }
+variable "domain_name" {
+  default = "www.elizabethfolzgroup.com"
+}
