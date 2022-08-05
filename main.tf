@@ -514,6 +514,105 @@ EOT
   }
 }
 
+# 2 Create a Target Group for load balancer
+resource "aws_lb_target_group" "PAP-tglb" {
+  name        = "PAP-tglb"
+  port        = 8080
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.PAP_VPC.id
+  target_type = "instance"
+  health_check {
+    healthy_threshold   = 3
+    unhealthy_threshold = 10
+    interval            = 90
+    timeout             = 60
+  }
+}
+
+resource "aws_lb_target_group_attachment" "PAP-tg-attachment" {
+  target_group_arn = aws_lb_target_group.PAP-tglb.arn
+  target_id        = aws_instance.PAP_Docker_Host.id
+  port             = 8080
+}
+
+# 3 Create a load balancer lisener 
+resource "aws_lb_listener" "PAP-lb-listener" {
+  load_balancer_arn = aws_lb.PAP-alb.arn
+  port              = "8080"
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.PAP-tglb.arn
+  }
+}
+
+#create a application load balancer 
+resource "aws_lb" "PAP-alb" {
+  name                       = "PAP-alb"
+  internal                   = false
+  load_balancer_type         = "application"
+  security_groups            = [aws_security_group.PAP_Docker_SG.id]
+  subnets                    = [aws_subnet.PAP_Public_SN1.id, aws_subnet.PAP_Public_SN2.id]
+  enable_deletion_protection = false
+  tags = {
+    Enviroment = "production"
+  }
+}
+
+# Create AMI from docker instance
+resource "aws_ami_from_instance" "PAP_Docker_ami" {
+  name                    = "PAP-ami"
+  source_instance_id      = aws_instance.PAP_Docker_Host.id
+  snapshot_without_reboot = true
+  depends_on = [
+    aws_instance.PAP_Docker_Host
+  ]
+}
+# Launch Configuration for autoscaling group = PAP-lc
+resource "aws_launch_configuration" "PAP-lc" {
+  name_prefix                 = "PAP-acplc"
+  image_id                    = aws_ami_from_instance.PAP_Docker_ami.id
+  instance_type               = "t2.micro"
+  security_groups             = [aws_security_group.PAP_Docker_SG.id]
+  associate_public_ip_address = true
+  key_name                    = var.keypair
+
+}
+
+# 6 Autoscaling Group = PAP-asg
+resource "aws_autoscaling_group" "PAP-asg" {
+  name                      = "PAP-asg"
+  desired_capacity          = 3
+  max_size                  = 4
+  min_size                  = 2
+  health_check_grace_period = 300
+  default_cooldown          = 60
+  health_check_type         = "ELB"
+  force_delete              = true
+  launch_configuration      = aws_launch_configuration.PAP-lc.name
+  vpc_zone_identifier       = [aws_subnet.PAP_Public_SN1.id, aws_subnet.PAP_Public_SN2.id]
+  target_group_arns         = ["${aws_lb_target_group.PAP-tglb.arn}"]
+  tag {
+    key                 = "Name"
+    value               = "PAP-asg"
+    propagate_at_launch = true
+  }
+}
+
+# Autoscaling Group Policy = PAP-asgpol
+resource "aws_autoscaling_policy" "PAP-asgpol" {
+  name                   = "PAP-asgpol"
+  policy_type            = "TargetTrackingScaling"
+  adjustment_type        = "ChangeInCapacity"
+  autoscaling_group_name = aws_autoscaling_group.PAP-asg.name
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 60.0
+  }
+}
+
 # Route 53 Hosted Zone
 resource "aws_route53_zone" "docker_zone" {
   name          = var.domain_name
@@ -521,15 +620,15 @@ resource "aws_route53_zone" "docker_zone" {
 }
 
 # Route 53 A Record
-resource "aws_route53_record" "PAPUST_Website" {
+resource "aws_route53_record" "PAP_Website" {
   zone_id = aws_route53_zone.docker_zone.zone_id
   name    = var.domain_name
   type    = "A"
-  ttl     = "300" #- (Use when not associating route53 to a load balancer)
-  records = [aws_instance.PAP_Docker_Host.public_ip]
-  #alias {
-  #  name                   = aws_lb.PAPUST-elb.dns_name
-  #  zone_id                = aws_lb.PAPUST-elb.zone_id
-  #  evaluate_target_health = false
-  #}
+  # ttl     = "300" - (Use when not associating route53 to a load balancer)
+  # records = [aws_instance.PAP_Docker_Host.public_ip]
+  alias {
+    name                   = aws_lb.PAP-alb.dns_name
+    zone_id                = aws_lb.PAP-alb.zone_id
+    evaluate_target_health = false
+  }
 }

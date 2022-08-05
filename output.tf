@@ -11,7 +11,7 @@ output "Ansible_public_ip" {
 }
 
 output "name_servers" {
-  value = aws_route53_record.PAPUST_Website.name
+  value = aws_route53_record.PAP_Website.name
 }
 
 output "ns_records" {
