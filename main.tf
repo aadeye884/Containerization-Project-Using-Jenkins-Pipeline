@@ -419,9 +419,9 @@ localhost ansible_connection=local
 [docker_host]
 ${data.aws_instance.PAP_Docker_IP.public_ip}  ansible_ssh_private_key_file=/home/ec2-user/.ssh/server_keypairpanskey_rsa
 EOT
+sudo mkdir /opt/docker
 sudo chown -R ec2-user:ec2-user /opt/docker
 sudo chmod -R 700 /opt/docker
-sudo mkdir /opt/docker
 sudo chmod 700 home/ec2-user/opt/docker
 touch /opt/docker/Dockerfile
 cat <<EOT>> /opt/docker/Dockerfile
@@ -492,7 +492,7 @@ cat <<EOT>> /opt/docker/docker-container.yml
 EOT
 cat << EOT > /opt/docker/newrelic.yml
 ---
- - hosts: docker
+ - hosts: docker_host
    become: true
    tasks:
    - name: install newrelic agent
@@ -532,13 +532,13 @@ resource "aws_lb_target_group" "PAP-tglb" {
 resource "aws_lb_target_group_attachment" "PAP-tg-attachment" {
   target_group_arn = aws_lb_target_group.PAP-tglb.arn
   target_id        = aws_instance.PAP_Docker_Host.id
-  port             = 8080
+  port             = 80
 }
 
 # 3 Create a load balancer lisener 
 resource "aws_lb_listener" "PAP-lb-listener" {
   load_balancer_arn = aws_lb.PAP-alb.arn
-  port              = "8080"
+  port              = "80"
   protocol          = "HTTP"
   default_action {
     type             = "forward"
