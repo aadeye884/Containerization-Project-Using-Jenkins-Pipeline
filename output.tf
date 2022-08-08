@@ -15,5 +15,5 @@ output "name_servers" {
 }
 
 output "ns_records" {
-  value = aws_route53_zone.docker_zone.name_servers
+  value = aws_route53_zone.pap_zone.name_servers
 }

@@ -8,7 +8,7 @@ resource "aws_vpc" "PAP_VPC" {
   }
 }
 
-# Two Public & Two Private Subnets in Diff AZ
+# Public Subnet 01
 resource "aws_subnet" "PAP_Public_SN1" {
   vpc_id            = aws_vpc.PAP_VPC.id
   cidr_block        = var.public_subnet1_cidr_block
@@ -19,6 +19,7 @@ resource "aws_subnet" "PAP_Public_SN1" {
   }
 }
 
+# Public Subnet 02
 resource "aws_subnet" "PAP_Public_SN2" {
   vpc_id            = aws_vpc.PAP_VPC.id
   cidr_block        = var.public_subnet2_cidr_block
@@ -29,6 +30,7 @@ resource "aws_subnet" "PAP_Public_SN2" {
   }
 }
 
+# Private Subnet 01
 resource "aws_subnet" "PAP_Private_SN1" {
   vpc_id            = aws_vpc.PAP_VPC.id
   cidr_block        = var.private_subnet1_cidr_block
@@ -39,6 +41,7 @@ resource "aws_subnet" "PAP_Private_SN1" {
   }
 }
 
+# Private Subnet 02
 resource "aws_subnet" "PAP_Private_SN2" {
   vpc_id            = aws_vpc.PAP_VPC.id
   cidr_block        = var.private_subnet2_cidr_block
@@ -58,7 +61,7 @@ resource "aws_internet_gateway" "PAP_IGW" {
   }
 }
 
-# Create a public route table
+# Public route table
 resource "aws_route_table" "PAP_Public_RT" {
   vpc_id = aws_vpc.PAP_VPC.id
 
@@ -239,31 +242,6 @@ resource "aws_security_group" "PAP_Ansible_SG" {
     Name = "PAP_Ansible_SG"
   }
 }
-# resource "aws_security_group" "PAP_DB_SG" {
-#   name        = "PAP_DB_SG"
-#   description = "Allow TLS inbound traffic"
-#   vpc_id      = aws_vpc.PAP_VPC.id
-
-#   ingress {
-#     description = "SSH from VPC"
-#     from_port   = 22
-#     to_port     = 22
-#     protocol    = "tcp"
-#     cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
-#   }
-
-#   egress {
-#     description = "HTTP"
-#     from_port   = 0
-#     to_port     = 0
-#     protocol    = "-1"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-
-#   tags = {
-#     Name = "PAP_DB_SG"
-#   }
-# }
 
 # Instance Keypair
 resource "aws_key_pair" "server_keypair" {
@@ -403,9 +381,9 @@ su ec2-user
 # sudo chown -R ec2-user:ec2-user/.ssh/authorized_keys
 # sudo chmod 600 /home/ec2-user/.ssh/authorized_keys
 # sudo chown ec2-user:ec2-user/etc/ansible
-sudo su - ec2-user -c "ssh-keygen -f ~/.ssh/server_keypairpanskey_rsa -t rsa -N ''"
+sudo su - ec2-user -c "ssh-keygen -f ~/.ssh/server_keypairanskey_rsa -t rsa -N ''"
 sudo bash -c ' echo "StrictHostKeyChecking No" >> /etc/ssh/ssh_config'
-sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/server_keypairpanskey_rsa.pub ec2-user@${data.aws_instance.PAP_Docker_IP.public_ip} -p 22'
+sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/server_keypairanskey_rsa.pub ec2-user@${data.aws_instance.PAP_Docker_IP.public_ip} -p 22'
 sudo yum install -y yum-utils
 sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 sudo yum install docker-ce -y
@@ -417,11 +395,11 @@ sudo chown ec2-user:ec2-user hosts
 cat <<EOT>> /etc/ansible/hosts
 localhost ansible_connection=local
 [docker_host]
-${data.aws_instance.PAP_Docker_IP.public_ip}  ansible_ssh_private_key_file=/home/ec2-user/.ssh/server_keypairpanskey_rsa
+${data.aws_instance.PAP_Docker_IP.public_ip}  ansible_ssh_private_key_file=/home/ec2-user/.ssh/server_keypairanskey_rsa
 EOT
 sudo mkdir /opt/docker
-sudo chown -R ec2-user:ec2-user /opt/docker
-sudo chmod -R 700 /opt/docker
+sudo chown -R ec2-user:ec2-user /opt/
+sudo chown -R ec2-user:ec2-user docker/
 sudo chmod 700 home/ec2-user/opt/docker
 touch /opt/docker/Dockerfile
 cat <<EOT>> /opt/docker/Dockerfile
@@ -487,7 +465,7 @@ cat <<EOT>> /opt/docker/docker-container.yml
      ignore_errors: yes
 
    - name: Create container from pet adoption image
-     command: docker run -it -d --name pet-adoption-container -p 8080:8085 cloudhight/pet-adoption-image
+     command: docker run -it -d --name pet-adoption-container -p 8080:8080 cloudhight/pet-adoption-image
      ignore_errors: yes
 EOT
 cat << EOT > /opt/docker/newrelic.yml
@@ -613,15 +591,75 @@ resource "aws_autoscaling_policy" "PAP-asgpol" {
   }
 }
 
+# Backend Security group = PAP-Backend-sg
+resource "aws_security_group" "PAP_Backend_SG" {
+  name        = "PAP_Backend_SG"
+  description = "Enables SSH & MYSQL access"
+  vpc_id      = aws_vpc.PAP_VPC.id
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
+  }
+  ingress {
+    description = "MYSQL"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
+  }
+  egress {
+    description = "HTTP"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = {
+    Name = "PAP_Backend_SG"
+  }
+}
+
+# Create a multi AZ RDS database
+# DB subnet group = "PAP-db-sng
+resource "aws_db_subnet_group" "pap-db-sng" {
+  name       = "pap-db-sng"
+  subnet_ids = [aws_subnet.PAP_Private_SN1.id, aws_subnet.PAP_Private_SN2.id]
+  tags = {
+    Name = "pap-db-sng"
+  }
+}
+
+# RDS database =pap-db
+resource "aws_db_instance" "pap-db" {
+  allocated_storage      = 20
+  identifier             = var.identifier
+  storage_type           = "gp2"
+  engine                 = "mysql"
+  engine_version         = "5.7"
+  instance_class         = "db.t2.micro"
+  multi_az               = true
+  db_name                = var.db_name
+  username               = var.db_username
+  password               = var.db_passwd
+  parameter_group_name   = "default.mysql5.7"
+  skip_final_snapshot    = true
+  db_subnet_group_name   = aws_db_subnet_group.pap-db-sng.id
+  vpc_security_group_ids = [aws_security_group.PAP_Backend_SG.id]
+  publicly_accessible    = false
+}
+
 # Route 53 Hosted Zone
-resource "aws_route53_zone" "docker_zone" {
+resource "aws_route53_zone" "pap_zone" {
   name          = var.domain_name
   force_destroy = true
 }
 
 # Route 53 A Record
 resource "aws_route53_record" "PAP_Website" {
-  zone_id = aws_route53_zone.docker_zone.zone_id
+  zone_id = aws_route53_zone.pap_zone.zone_id
   name    = var.domain_name
   type    = "A"
   # ttl     = "300" - (Use when not associating route53 to a load balancer)

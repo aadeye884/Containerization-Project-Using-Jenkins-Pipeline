@@ -1,7 +1,3 @@
-variable "region" {
-  default     = "us-east-1"
-  description = "provider region"
-}
 variable "PAP-ami" {
   default = "ami-06640050dc3f556bb"
 }
@@ -70,4 +66,17 @@ variable "private_routetable_cidr_block" {
 }
 variable "domain_name" {
   default = "www.elizabethfolzgroup.com"
+}
+variable "identifier" {
+  default = "pap-db"
+}
+variable "db_username" {
+  default = "admin"
+}
+variable "db_passwd" {
+  default = "Admin123"
+}
+variable "db_name" {
+  default     = "papdb"
+  description = "database name"
 }
