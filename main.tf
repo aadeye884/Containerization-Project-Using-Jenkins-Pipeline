@@ -190,9 +190,17 @@ resource "aws_security_group" "PAP_Docker_SG" {
   }
 
   ingress {
-    description = "Proxy from VPC"
+    description = "Custom tcp"
     from_port   = 8085
     to_port     = 8085
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+    ingress {
+    description = "Custom tcp"
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -219,14 +227,6 @@ resource "aws_security_group" "PAP_Ansible_SG" {
     description = "SSH"
     from_port   = 22
     to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Proxy from VPC"
-    from_port   = 8080
-    to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -472,7 +472,7 @@ cat <<EOT>> /opt/docker/docker-container.yml
      ignore_errors: yes
 
    - name: Create container from pet adoption image
-     command: docker run -it -d --name pet-adoption-container -p 8080:8080 cloudhight/pet-adoption-image
+     command: docker run -it -d --name pet-adoption-container -p 8080:8085 cloudhight/pet-adoption-image
      ignore_errors: yes
 EOT
 cat << EOT > /opt/docker/newrelic.yml
