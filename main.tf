@@ -472,7 +472,7 @@ cat <<EOT>> /opt/docker/docker-container.yml
      ignore_errors: yes
 
    - name: Create container from pet adoption image
-     command: docker run -it -d --name pet-adoption-container -p 8080:8085 cloudhight/pet-adoption-image
+     command: docker run -it -d --name pet-adoption-container -p 8080:8080 cloudhight/pet-adoption-image
      ignore_errors: yes
 EOT
 cat << EOT > /opt/docker/newrelic.yml
