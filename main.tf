@@ -370,13 +370,20 @@ sudo alternatives --set python /usr/bin/python3.8
 sudo yum -y install python3-pip
 sudo yum install ansible -y
 pip3 install ansible --user
+sudo chown ec2-user:ec2-user /etc/ansible
 sudo yum install -y http://mirror.centos.org/centos/7/extras/x86_64/Packages/sshpass-1.06-2.el7.x86_64.rpm
 sudo yum install sshpass -y
+echo "license_key: c32625464fc4f6eae500b09fa88fe0c93434NRAL" | sudo tee -a /etc/newrelic-infra.yml
+sudo curl -o /etc/yum.repos.d/newrelic-infra.repo https://download.newrelic.com/infrastructure_agent/linux/yum/el/7/x86_64/newrelic-infra.repo
+sudo yum -q makecache -y --disablerepo='*' --enablerepo='newrelic-infra'
+sudo yum install newrelic-infra -y
 sudo su
 echo Admin123@ | passwd ec2-user --stdin
 echo "ec2-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 sed -ie 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
 sudo service sshd reload
+sudo chmod -R 700 .ssh/
+sudo chown -R ec2-user:ec2-user .ssh/
 su ec2-user
 # sudo chown -R ec2-user:ec2-user/.ssh/authorized_keys
 # sudo chmod 600 /home/ec2-user/.ssh/authorized_keys
@@ -465,7 +472,7 @@ cat <<EOT>> /opt/docker/docker-container.yml
      ignore_errors: yes
 
    - name: Create container from pet adoption image
-     command: docker run -it -d --name pet-adoption-container -p 8080:8080 cloudhight/pet-adoption-image
+     command: docker run -it -d --name pet-adoption-container -p 8080:8085 cloudhight/pet-adoption-image
      ignore_errors: yes
 EOT
 cat << EOT > /opt/docker/newrelic.yml
@@ -510,13 +517,13 @@ resource "aws_lb_target_group" "PAP-tglb" {
 resource "aws_lb_target_group_attachment" "PAP-tg-attachment" {
   target_group_arn = aws_lb_target_group.PAP-tglb.arn
   target_id        = aws_instance.PAP_Docker_Host.id
-  port             = 80
+  port             = 8080
 }
 
 # 3 Create a load balancer lisener 
 resource "aws_lb_listener" "PAP-lb-listener" {
   load_balancer_arn = aws_lb.PAP-alb.arn
-  port              = "80"
+  port              = "8080"
   protocol          = "HTTP"
   default_action {
     type             = "forward"
