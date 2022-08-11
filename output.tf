@@ -17,3 +17,7 @@ output "name_servers" {
 output "ns_records" {
   value = aws_route53_zone.pap_zone.name_servers
 }
+
+output "alb_dns" {
+  value = aws_lb.PAP-alb.dns_name
+}
