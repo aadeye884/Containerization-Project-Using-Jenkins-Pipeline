@@ -188,15 +188,6 @@ resource "aws_security_group" "PAP_Docker_SG" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  ingress {
-    description = "Custom tcp"
-    from_port   = 8085
-    to_port     = 8085
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
     ingress {
     description = "Custom tcp"
     from_port   = 8080
@@ -544,119 +535,119 @@ resource "aws_lb" "PAP-alb" {
   }
 }
 
-# Create AMI from docker instance
-resource "aws_ami_from_instance" "PAP_Docker_ami" {
-  name                    = "PAP-ami"
-  source_instance_id      = aws_instance.PAP_Docker_Host.id
-  snapshot_without_reboot = true
-  depends_on = [
-    aws_instance.PAP_Docker_Host
-  ]
-}
-# Launch Configuration for autoscaling group = PAP-lc
-resource "aws_launch_configuration" "PAP-lc" {
-  name_prefix                 = "PAP-acplc"
-  image_id                    = aws_ami_from_instance.PAP_Docker_ami.id
-  instance_type               = "t2.micro"
-  security_groups             = [aws_security_group.PAP_Docker_SG.id]
-  associate_public_ip_address = true
-  key_name                    = var.keypair
+# # Create AMI from docker instance
+# resource "aws_ami_from_instance" "PAP_Docker_ami" {
+#   name                    = "PAP-ami"
+#   source_instance_id      = aws_instance.PAP_Docker_Host.id
+#   snapshot_without_reboot = true
+#   depends_on = [
+#     aws_instance.PAP_Docker_Host
+#   ]
+# }
+# # Launch Configuration for autoscaling group = PAP-lc
+# resource "aws_launch_configuration" "PAP-lc" {
+#   name_prefix                 = "PAP-acplc"
+#   image_id                    = aws_ami_from_instance.PAP_Docker_ami.id
+#   instance_type               = "t2.micro"
+#   security_groups             = [aws_security_group.PAP_Docker_SG.id]
+#   associate_public_ip_address = true
+#   key_name                    = var.keypair
 
-}
+# }
 
-# 6 Autoscaling Group = PAP-asg
-resource "aws_autoscaling_group" "PAP-asg" {
-  name                      = "PAP-asg"
-  desired_capacity          = 3
-  max_size                  = 4
-  min_size                  = 2
-  health_check_grace_period = 300
-  default_cooldown          = 60
-  health_check_type         = "ELB"
-  force_delete              = true
-  launch_configuration      = aws_launch_configuration.PAP-lc.name
-  vpc_zone_identifier       = [aws_subnet.PAP_Public_SN1.id, aws_subnet.PAP_Public_SN2.id]
-  target_group_arns         = ["${aws_lb_target_group.PAP-tglb.arn}"]
-  tag {
-    key                 = "Name"
-    value               = "PAP-asg"
-    propagate_at_launch = true
-  }
-}
+# # 6 Autoscaling Group = PAP-asg
+# resource "aws_autoscaling_group" "PAP-asg" {
+#   name                      = "PAP-asg"
+#   desired_capacity          = 3
+#   max_size                  = 4
+#   min_size                  = 2
+#   health_check_grace_period = 300
+#   default_cooldown          = 60
+#   health_check_type         = "ELB"
+#   force_delete              = true
+#   launch_configuration      = aws_launch_configuration.PAP-lc.name
+#   vpc_zone_identifier       = [aws_subnet.PAP_Public_SN1.id, aws_subnet.PAP_Public_SN2.id]
+#   target_group_arns         = ["${aws_lb_target_group.PAP-tglb.arn}"]
+#   tag {
+#     key                 = "Name"
+#     value               = "PAP-asg"
+#     propagate_at_launch = true
+#   }
+# }
 
-# Autoscaling Group Policy = PAP-asgpol
-resource "aws_autoscaling_policy" "PAP-asgpol" {
-  name                   = "PAP-asgpol"
-  policy_type            = "TargetTrackingScaling"
-  adjustment_type        = "ChangeInCapacity"
-  autoscaling_group_name = aws_autoscaling_group.PAP-asg.name
-  target_tracking_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "ASGAverageCPUUtilization"
-    }
-    target_value = 60.0
-  }
-}
+# # Autoscaling Group Policy = PAP-asgpol
+# resource "aws_autoscaling_policy" "PAP-asgpol" {
+#   name                   = "PAP-asgpol"
+#   policy_type            = "TargetTrackingScaling"
+#   adjustment_type        = "ChangeInCapacity"
+#   autoscaling_group_name = aws_autoscaling_group.PAP-asg.name
+#   target_tracking_configuration {
+#     predefined_metric_specification {
+#       predefined_metric_type = "ASGAverageCPUUtilization"
+#     }
+#     target_value = 60.0
+#   }
+# }
 
-# Backend Security group = PAP-Backend-sg
-resource "aws_security_group" "PAP_Backend_SG" {
-  name        = "PAP_Backend_SG"
-  description = "Enables SSH & MYSQL access"
-  vpc_id      = aws_vpc.PAP_VPC.id
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
-  }
-  ingress {
-    description = "MYSQL"
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
-  }
-  egress {
-    description = "HTTP"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  tags = {
-    Name = "PAP_Backend_SG"
-  }
-}
+# # Backend Security group = PAP-Backend-sg
+# resource "aws_security_group" "PAP_Backend_SG" {
+#   name        = "PAP_Backend_SG"
+#   description = "Enables SSH & MYSQL access"
+#   vpc_id      = aws_vpc.PAP_VPC.id
+#   ingress {
+#     description = "SSH"
+#     from_port   = 22
+#     to_port     = 22
+#     protocol    = "tcp"
+#     cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
+#   }
+#   ingress {
+#     description = "MYSQL"
+#     from_port   = 3306
+#     to_port     = 3306
+#     protocol    = "tcp"
+#     cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
+#   }
+#   egress {
+#     description = "HTTP"
+#     from_port   = 0
+#     to_port     = 0
+#     protocol    = "-1"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
+#   tags = {
+#     Name = "PAP_Backend_SG"
+#   }
+# }
 
-# Create a multi AZ RDS database
-# DB subnet group = "PAP-db-sng
-resource "aws_db_subnet_group" "pap-db-sng" {
-  name       = "pap-db-sng"
-  subnet_ids = [aws_subnet.PAP_Private_SN1.id, aws_subnet.PAP_Private_SN2.id]
-  tags = {
-    Name = "pap-db-sng"
-  }
-}
+# # Create a multi AZ RDS database
+# # DB subnet group = "PAP-db-sng
+# resource "aws_db_subnet_group" "pap-db-sng" {
+#   name       = "pap-db-sng"
+#   subnet_ids = [aws_subnet.PAP_Private_SN1.id, aws_subnet.PAP_Private_SN2.id]
+#   tags = {
+#     Name = "pap-db-sng"
+#   }
+# }
 
-# RDS database =pap-db
-resource "aws_db_instance" "pap-db" {
-  allocated_storage      = 20
-  identifier             = var.identifier
-  storage_type           = "gp2"
-  engine                 = "mysql"
-  engine_version         = "5.7"
-  instance_class         = "db.t2.micro"
-  multi_az               = true
-  db_name                = var.db_name
-  username               = var.db_username
-  password               = var.db_passwd
-  parameter_group_name   = "default.mysql5.7"
-  skip_final_snapshot    = true
-  db_subnet_group_name   = aws_db_subnet_group.pap-db-sng.id
-  vpc_security_group_ids = [aws_security_group.PAP_Backend_SG.id]
-  publicly_accessible    = false
-}
+# # RDS database =pap-db
+# resource "aws_db_instance" "pap-db" {
+#   allocated_storage      = 20
+#   identifier             = var.identifier
+#   storage_type           = "gp2"
+#   engine                 = "mysql"
+#   engine_version         = "5.7"
+#   instance_class         = "db.t2.micro"
+#   multi_az               = true
+#   db_name                = var.db_name
+#   username               = var.db_username
+#   password               = var.db_passwd
+#   parameter_group_name   = "default.mysql5.7"
+#   skip_final_snapshot    = true
+#   db_subnet_group_name   = aws_db_subnet_group.pap-db-sng.id
+#   vpc_security_group_ids = [aws_security_group.PAP_Backend_SG.id]
+#   publicly_accessible    = false
+# }
 
 # Route 53 Hosted Zone
 resource "aws_route53_zone" "pap_zone" {
@@ -669,7 +660,7 @@ resource "aws_route53_record" "PAP_Website" {
   zone_id = aws_route53_zone.pap_zone.zone_id
   name    = var.domain_name
   type    = "A"
-  # ttl     = "300" - (Use when not associating route53 to a load balancer)
+  # ttl     = "300" #- (Use when not associating route53 to a load balancer)
   # records = [aws_instance.PAP_Docker_Host.public_ip]
   alias {
     name                   = aws_lb.PAP-alb.dns_name
