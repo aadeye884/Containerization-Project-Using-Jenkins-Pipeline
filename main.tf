@@ -496,7 +496,6 @@ resource "aws_lb_target_group" "PAP-tglb" {
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.PAP_VPC.id
-  target_type = "instance"
   health_check {
     healthy_threshold   = 3
     unhealthy_threshold = 10
