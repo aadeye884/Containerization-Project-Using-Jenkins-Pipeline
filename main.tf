@@ -188,7 +188,7 @@ resource "aws_security_group" "PAP_Docker_SG" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-    ingress {
+  ingress {
     description = "Custom tcp"
     from_port   = 8080
     to_port     = 8080
@@ -492,10 +492,10 @@ EOT
 
 # 2 Create a Target Group for load balancer
 resource "aws_lb_target_group" "PAP-tglb" {
-  name        = "PAP-tglb"
-  port        = 8080
-  protocol    = "HTTP"
-  vpc_id      = aws_vpc.PAP_VPC.id
+  name     = "PAP-tglb"
+  port     = 8080
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.PAP_VPC.id
   health_check {
     healthy_threshold   = 3
     unhealthy_threshold = 10
