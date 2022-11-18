@@ -1,146 +1,141 @@
-# Custom VPC
-resource "aws_vpc" "PAP_VPC" {
+#1 Create a VPC
+resource "aws_vpc" "PAPUST_VPC" {
   cidr_block       = var.VPC_cidr_block
   instance_tenancy = "default"
 
   tags = {
-    Name = var.VPC_tag_name
+    Name = "var.VPC_tag_name"
   }
 }
 
-# Public Subnet 01
-resource "aws_subnet" "PAP_Public_SN1" {
-  vpc_id            = aws_vpc.PAP_VPC.id
+#2 Create Public Subnet 01
+resource "aws_subnet" "PAPUST_Public_SN1" {
+  vpc_id            = aws_vpc.PAPUST_VPC.id
   cidr_block        = var.public_subnet1_cidr_block
   availability_zone = var.public_subnet1_availabilityzone
 
   tags = {
-    Name = "PAP_Public_SN1"
+    Name = "PAPUST_Public_SN1"
   }
 }
 
-# Public Subnet 02
-resource "aws_subnet" "PAP_Public_SN2" {
-  vpc_id            = aws_vpc.PAP_VPC.id
+#3 Create Public Subnet 02
+resource "aws_subnet" "PAPUST_Public_SN2" {
+  vpc_id            = aws_vpc.PAPUST_VPC.id
   cidr_block        = var.public_subnet2_cidr_block
   availability_zone = var.public_subnet2_availabilityzone
 
   tags = {
-    Name = "PAP_Public_SN2"
+    Name = "PAPUST_Public_SN2"
   }
 }
 
-# Private Subnet 01
-resource "aws_subnet" "PAP_Private_SN1" {
-  vpc_id            = aws_vpc.PAP_VPC.id
+#4 Create Private Subnet 01
+resource "aws_subnet" "PAPUST_PrvSN1" {
+  vpc_id            = aws_vpc.PAPUST_VPC.id
   cidr_block        = var.private_subnet1_cidr_block
   availability_zone = var.private_subnet1_availabilityzone
-
+ 
   tags = {
-    Name = "PAP_Private_SN1"
+    Name = "PAPUST_Private_SN1"
   }
 }
 
-# Private Subnet 02
-resource "aws_subnet" "PAP_Private_SN2" {
-  vpc_id            = aws_vpc.PAP_VPC.id
+#5 Create Private Subnet 02
+resource "aws_subnet" "PAPUST_Private_SN2" {
+  vpc_id            = aws_vpc.PAPUST_VPC.id
   cidr_block        = var.private_subnet2_cidr_block
   availability_zone = var.private_subnet2_availabilityzone
-
+  
   tags = {
-    Name = "PAP_Private_SN2"
+    Name = "PAPUST_Private_SN2"
   }
 }
 
-# Custom Internet Gateway
-resource "aws_internet_gateway" "PAP_IGW" {
-  vpc_id = aws_vpc.PAP_VPC.id
+#6 Create Internet Gateway
+resource "aws_internet_gateway" "PAPUST_IGW" {
+  vpc_id = aws_vpc.PAPUST_VPC.id
 
   tags = {
-    Name = "PAP_IGW"
+    Name = "PAPUST_IGW"
   }
 }
 
-# Public route table
-resource "aws_route_table" "PAP_Public_RT" {
-  vpc_id = aws_vpc.PAP_VPC.id
+#7 Create Public Route Table
+resource "aws_route_table" "PAPUST_PubRT" {
+  vpc_id = aws_vpc.PAPUST_VPC.id
 
   route {
     cidr_block = var.public_routetable_cidr_block
-    gateway_id = aws_internet_gateway.PAP_IGW.id
+    gateway_id = aws_internet_gateway.PAPUST_IGW.id
   }
 
   tags = {
-    Name = "PAP_Public_RT"
+    Name = "PAPUST_PubRT"
   }
 }
 
-# Public subnet1 attached to public route table
-resource "aws_route_table_association" "PAP_Public_RTA1" {
-  subnet_id      = aws_subnet.PAP_Public_SN1.id
-  route_table_id = aws_route_table.PAP_Public_RT.id
+#8 Create Route Table Association for Public Subnet 01
+resource "aws_route_table_association" "PAPUST_RTAssoc1" {
+  subnet_id      = aws_subnet.PAPUST_Public_SN1.id
+  route_table_id = aws_route_table.PAPUST_PubRT.id
 }
 
-# Public subnet2 attached to public route table
-resource "aws_route_table_association" "PAP_Public_RTA2" {
-  subnet_id      = aws_subnet.PAP_Public_SN2.id
-  route_table_id = aws_route_table.PAP_Public_RT.id
+#9 Create Route Table Association for Public Subnet 02
+resource "aws_route_table_association" "PAPUST_RTAssoc2" {
+  subnet_id      = aws_subnet.PAPUST_Public_SN2.id
+  route_table_id = aws_route_table.PAPUST_PubRT.id
 }
 
-# EIP for NAT Gateway
-resource "aws_eip" "PAP_EIP" {
-  vpc        = true
-  depends_on = [aws_internet_gateway.PAP_IGW]
+#10 Create NAT Gateway
+resource "aws_nat_gateway" "PAPUST_NAT" {
+  allocation_id = aws_eip.PAPUST_EIP.id
+  subnet_id     = aws_subnet.PAPUST_Public_SN1.id
 
   tags = {
-    Name = "PAP_EIP"
+    Name = "PAPUST_NAT"
   }
 }
 
-#Custom NAT Gateway
-resource "aws_nat_gateway" "PAP_NAT" {
-  allocation_id = aws_eip.PAP_EIP.id
-  subnet_id     = aws_subnet.PAP_Public_SN1.id
-
-  tags = {
-    Name = "PAP_NAT"
-  }
+#11 Create Elastic IP Address for NAT Gateway
+resource "aws_eip" "PAPUST_EIP" {
+  vpc = true
 }
 
-# Create a private route table
-resource "aws_route_table" "PAP_Private_RT" {
-  vpc_id = aws_vpc.PAP_VPC.id
+#12 Create Private_Route Table
+resource "aws_route_table" "PAPUST_PrvSNRT" {
+  vpc_id = aws_vpc.PAPUST_VPC.id
 
   route {
     cidr_block     = var.private_routetable_cidr_block
-    nat_gateway_id = aws_nat_gateway.PAP_NAT.id
+    nat_gateway_id = aws_nat_gateway.PAPUST_NAT.id
   }
 
   tags = {
-    Name = "PAP_Private_RT"
+    Name = "PAPUST_PrvSNRT"
   }
 }
 
-# Private subnet1 attached to private route table
-resource "aws_route_table_association" "PAP_Private_RTA1" {
-  subnet_id      = aws_subnet.PAP_Private_SN1.id
-  route_table_id = aws_route_table.PAP_Private_RT.id
+#13 Create Private Subnet 01 Association
+resource "aws_route_table_association" "PAPUST_PrvSN1RTAss" {
+  subnet_id      = aws_subnet.PAPUST_PrvSN1.id
+  route_table_id = aws_route_table.PAPUST_PrvSNRT.id
 }
 
-# Private subnet2 attached to private route table
-resource "aws_route_table_association" "PAP_Private_RTA2" {
-  subnet_id      = aws_subnet.PAP_Private_SN2.id
-  route_table_id = aws_route_table.PAP_Private_RT.id
+#14 Create Private Subnet 02 Association
+resource "aws_route_table_association" "PAPUST_PrvSN2RTAss" {
+  subnet_id      = aws_subnet.PAPUST_Private_SN2.id
+  route_table_id = aws_route_table.PAPUST_PrvSNRT.id
 }
 
-# security groups Jenkins
-resource "aws_security_group" "PAP_Jenkins_SG" {
-  name        = "PAP_Jenkins_Access"
+#15 Create Jenkins Security Group
+resource "aws_security_group" "PAPUST_Jenkins_SG" {
+  name        = "PAPUST_Jenkins_SG"
   description = "Allow TLS inbound traffic"
-  vpc_id      = aws_vpc.PAP_VPC.id
+  vpc_id      = aws_vpc.PAPUST_VPC.id
 
   ingress {
-    description = "SSH From VPC"
+    description = "ssh from VPC"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -148,48 +143,7 @@ resource "aws_security_group" "PAP_Jenkins_SG" {
   }
 
   ingress {
-    description = "JenkinsPort From VPC"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "PAP_Jenkins_SG"
-  }
-}
-
-# security groups Docker
-resource "aws_security_group" "PAP_Docker_SG" {
-  name        = "PAP_Docker_Access"
-  description = "Allow TLS inbound traffic"
-  vpc_id      = aws_vpc.PAP_VPC.id
-
-  ingress {
-    description = "Allow HTTP access"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Allow SSH access"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    description = "Custom tcp"
+    description = "jenkins port from VPC"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
@@ -205,52 +159,28 @@ resource "aws_security_group" "PAP_Docker_SG" {
   }
 
   tags = {
-    Name = "PAP_Docker_SG"
-  }
-}
-# security groups Jenkins
-resource "aws_security_group" "PAP_Ansible_SG" {
-  name        = "PAP_Ansibles_Access"
-  description = "Allow TLS inbound traffic"
-  vpc_id      = aws_vpc.PAP_VPC.id
-
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "PAP_Ansible_SG"
+    Name = "PAPUST_Jenkins_SG"
   }
 }
 
-# Instance Keypair
-resource "aws_key_pair" "server_keypair" {
-  key_name   = var.keypair
-  public_key = file(var.publickey_path)
+# 16 Declare Key Pair
+resource "aws_key_pair" "UST-apC" {
+  key_name   = "UST-apC"
+  public_key = file(var.path_to_public_key)
 }
 
-# Jenkins Server
-resource "aws_instance" "PAP_Jenkins_Host" {
-  ami                         = var.PAP-ami
+#17 Create Jenkins Server  (using Red Hat for ami and t2.medium for instance type)
+resource "aws_instance" "PAPUST_Jenkins_Server" {
+  ami                         = var.ami
   instance_type               = var.instance_type_Jenkins
-  vpc_security_group_ids      = ["${aws_security_group.PAP_Jenkins_SG.id}"]
-  subnet_id                   = aws_subnet.PAP_Public_SN1.id
-  key_name                    = aws_key_pair.server_keypair.key_name
-  availability_zone           = var.public_subnet1_availabilityzone
+  vpc_security_group_ids      = ["${aws_security_group.PAPUST_Jenkins_SG.id}"]
   associate_public_ip_address = true
-  user_data                   = <<-EOF
-  #!/bin/bash
+  subnet_id                   = aws_subnet.PAPUST_Public_SN1.id
+  availability_zone           = var.public_subnet1_availabilityzone
+  key_name                    = aws_key_pair.UST-apC.key_name
+
+  user_data = <<-EOF
+  #!bin/bash
   sudo yum update -y
   sudo yum install wget -y
   sudo yum install git -y
@@ -262,7 +192,7 @@ resource "aws_instance" "PAP_Jenkins_Host" {
   sudo yum install jenkins java-1.8.0-openjdk-devel -y --nobest
   sudo systemctl start jenkins
   sudo systemctl enable jenkins
-  echo "license_key:c32625464fc4f6eae500b09fa88fe0c93434NRAL" | sudo tee -a /etc/newrelic-infra.yml
+  echo "license_key: 984fd9395376105d6273106ec42913a399a2NRAL" | sudo tee -a /etc/newrelic-infra.yml
   sudo curl -o /etc/yum.repos.d/newrelic-infra.repo https://download.newrelic.com/infrastructure_agent/linux/yum/el/7/x86_64/newrelic-infra.repo
   sudo yum -q makecache -y --disablerepo='*' --enablerepo='newrelic-infra'
   sudo yum install newrelic-infra -y
@@ -272,33 +202,85 @@ resource "aws_instance" "PAP_Jenkins_Host" {
   echo "ec2-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
   sudo sed -ie 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
   sudo service sshd reload
-  su - ec2-user -c "ssh-keygen -f ~/.ssh/server_keypairjenkey_rsa -t rsa -b 4096 -m PEM -N ''"
+  su - ec2-user -c "ssh-keygen -f ~/.ssh/PAPUSTjenkey_rsa -t rsa -b 4096 -m PEM -N ''"
   sudo bash -c ' echo "StrictHostKeyChecking No" >> /etc/ssh/ssh_config'
-  sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/server_keypairjenkey_rsa.pub ec2-user@${data.aws_instance.PAP_Ansible_IP.public_ip} -p 22'
+  sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/PAPUSTjenkey_rsa.pub ec2-user@${data.aws_instance.PAPUST_Ansible_IP.public_ip} -p 22'
   EOF
 
   tags = {
-    Name = "PAP_Jenkins_Host"
+    Name = "PAPUST_Jenkins_Server"
   }
 }
 
-# Docker Server 
-resource "aws_instance" "PAP_Docker_Host" {
-  ami                         = var.PAP-ami
+#18 Create Data Resource for for Ansible-IP
+data "aws_instance" "PAPUST_Ansible_IP" {
+  filter {
+    name   = "tag:Name"
+    values = ["PAPUST_Ansible"]
+  }
+  depends_on = [
+    aws_instance.PAPUST_Ansible_host,
+  ]
+}
+
+#19 Create FrontEnd Security Group for Docker
+resource "aws_security_group" "PAPUST_Docker_SG" {
+  name        = "PAPUST_Docker_SG"
+  description = "Allow inbound Traffic"
+  vpc_id      = aws_vpc.PAPUST_VPC.id
+  ingress {
+    description = "Allow SSH access"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Allow HTTP access"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Proxy from VPC"
+    from_port   = 8085
+    to_port     = 8085
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  tags = {
+    Name = "PAPUST_Docker_SG"
+  }
+}
+
+#20 Create EC2 Instance for Docker host using a t2.micro RedHat ami
+resource "aws_instance" "PAPUST_Docker_host" {
+  ami                         = var.ami
   instance_type               = var.instance_type_Docker
-  subnet_id                   = aws_subnet.PAP_Public_SN1.id
-  vpc_security_group_ids      = ["${aws_security_group.PAP_Docker_SG.id}"]
-  key_name                    = aws_key_pair.server_keypair.key_name
-  availability_zone           = var.public_subnet1_availabilityzone
+  subnet_id                   = aws_subnet.PAPUST_Public_SN1.id
+  vpc_security_group_ids      = ["${aws_security_group.PAPUST_Docker_SG.id}"]
   associate_public_ip_address = true
-  user_data                   = <<-EOF
+  availability_zone           = var.public_subnet1_availabilityzone
+  key_name                    = aws_key_pair.UST-apC.key_name
+
+  user_data = <<-EOF
 #!/bin/bash
 sudo yum update -y
 sudo yum upgrade -y
 sudo yum install -y yum-utils
 sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 sudo yum install docker-ce -y
-sudo systemctl start docker
+sudo systemctl start docker 
 sudo systemctl enable docker
 echo Admin123@ | passwd ec2-user --stdin
 echo "ec2-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
@@ -308,7 +290,7 @@ sudo service sshd reload
 su - ec2-user
 # sudo chmod -R 700 .ssh/
 # sudo chmod 600 .ssh/authorized_keys
-echo "license_key: c32625464fc4f6eae500b09fa88fe0c93434NRAL" | sudo tee -a /etc/newrelic-infra.yml
+echo "license_key: 2321a849d57e69fe9b28378de6b0c5ebb3ceNRAL" | sudo tee -a /etc/newrelic-infra.yml 
 sudo curl -o /etc/yum.repos.d/newrelic-infra.repo https://download.newrelic.com/infrastructure_agent/linux/yum/el/7/x86_64/newrelic-infra.repo
 sudo yum -q makecache -y --disablerepo='*' --enablerepo='newrelic-infra'
 sudo yum install newrelic-infra -y
@@ -317,41 +299,57 @@ docker run hello-world
 EOF
 
   tags = {
-    Name = "PAP_Docker_Host"
+    Name = "PAPUST_Docker_host"
   }
 }
 
-# Create Data Resource for for Docker-IP
-data "aws_instance" "PAP_Docker_IP" {
+#21 Create Data Resource for for Docker-IP
+data "aws_instance" "PAPUST_Docker_IP" {
   filter {
     name   = "tag:Name"
-    values = ["PAP_Docker_Host"]
+    values = ["PAPUST_Docker_host"]
   }
   depends_on = [
-    aws_instance.PAP_Docker_Host,
+    aws_instance.PAPUST_Docker_host,
   ]
 }
 
-# Create Data Resource for Ansible-IP
-data "aws_instance" "PAP_Ansible_IP" {
-  filter {
-    name   = "tag:Name"
-    values = ["PAP_Ansible_Host"]
+#22 Create Ansible Security Group
+resource "aws_security_group" "PAPUST_Ansible_SG" {
+  name        = "PAPUST_Ansible_SG"
+  description = "Allow TLS inbound traffic"
+  vpc_id      = aws_vpc.PAPUST_VPC.id
+
+  ingress {
+    description = "ssh from VPC"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
-  depends_on = [
-    aws_instance.PAP_Ansible_Host,
-  ]
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name = "PAPUST_Ansible_SG"
+  }
 }
 
-# Ansible Host
-resource "aws_instance" "PAP_Ansible_Host" {
-  ami                         = var.PAP-ami
-  instance_type               = var.instance_type_Ansible
-  subnet_id                   = aws_subnet.PAP_Public_SN1.id
-  vpc_security_group_ids      = ["${aws_security_group.PAP_Ansible_SG.id}"]
-  key_name                    = aws_key_pair.server_keypair.key_name
-  availability_zone           = var.public_subnet1_availabilityzone
+#23 Create Ansible Instance Host
+resource "aws_instance" "PAPUST_Ansible_host" {
+  ami                         = var.ami
+  instance_type               = var.instance_type_Docker
+  subnet_id                   = aws_subnet.PAPUST_Public_SN1.id
+  vpc_security_group_ids      = ["${aws_security_group.PAPUST_Ansible_SG.id}"]
   associate_public_ip_address = true
+  availability_zone           = var.public_subnet1_availabilityzone
+  key_name                    = aws_key_pair.UST-apC.key_name
   user_data                   = <<-EOF
 #!/bin/bash
 sudo yum update -y
@@ -361,27 +359,20 @@ sudo alternatives --set python /usr/bin/python3.8
 sudo yum -y install python3-pip
 sudo yum install ansible -y
 pip3 install ansible --user
-sudo chown ec2-user:ec2-user /etc/ansible
 sudo yum install -y http://mirror.centos.org/centos/7/extras/x86_64/Packages/sshpass-1.06-2.el7.x86_64.rpm
 sudo yum install sshpass -y
-echo "license_key: c32625464fc4f6eae500b09fa88fe0c93434NRAL" | sudo tee -a /etc/newrelic-infra.yml
-sudo curl -o /etc/yum.repos.d/newrelic-infra.repo https://download.newrelic.com/infrastructure_agent/linux/yum/el/7/x86_64/newrelic-infra.repo
-sudo yum -q makecache -y --disablerepo='*' --enablerepo='newrelic-infra'
-sudo yum install newrelic-infra -y
 sudo su
 echo Admin123@ | passwd ec2-user --stdin
 echo "ec2-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 sed -ie 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
 sudo service sshd reload
-sudo chmod -R 700 .ssh/
-sudo chown -R ec2-user:ec2-user .ssh/
-su ec2-user
+su - ec2-user
 # sudo chown -R ec2-user:ec2-user/.ssh/authorized_keys
 # sudo chmod 600 /home/ec2-user/.ssh/authorized_keys
 # sudo chown ec2-user:ec2-user/etc/ansible
-sudo su - ec2-user -c "ssh-keygen -f ~/.ssh/server_keypairanskey_rsa -t rsa -N ''"
+su - ec2-user -c "ssh-keygen -f ~/.ssh/PAPUSTanskey_rsa -t rsa -N ''"
 sudo bash -c ' echo "StrictHostKeyChecking No" >> /etc/ssh/ssh_config'
-sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/server_keypairanskey_rsa.pub ec2-user@${data.aws_instance.PAP_Docker_IP.public_ip} -p 22'
+sudo su - ec2-user -c 'sshpass -p "Admin123@" ssh-copy-id -i /home/ec2-user/.ssh/PAPUSTanskey_rsa.pub ec2-user@${data.aws_instance.PAPUST_Docker_IP.public_ip} -p 22'
 sudo yum install -y yum-utils
 sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 sudo yum install docker-ce -y
@@ -393,7 +384,7 @@ sudo chown ec2-user:ec2-user hosts
 cat <<EOT>> /etc/ansible/hosts
 localhost ansible_connection=local
 [docker_host]
-${data.aws_instance.PAP_Docker_IP.public_ip}  ansible_ssh_private_key_file=/home/ec2-user/.ssh/server_keypairanskey_rsa
+${data.aws_instance.PAPUST_Docker_IP.public_ip}  ansible_ssh_private_key_file=/home/ec2-user/.ssh/PAPUSTanskey_rsa
 EOT
 sudo mkdir /opt/docker
 sudo chown -R ec2-user:ec2-user /opt/
@@ -404,11 +395,11 @@ cat <<EOT>> /opt/docker/Dockerfile
 # pull tomcat image from docker hub
 FROM tomcat
 FROM openjdk
-LABEL MAINTAINER PAP
+LABEL MAINTAINER PAPUST
 #copy war file on the container
 COPY ./spring-petclinic-2.4.2.war app/
 WORKDIR app/
-ENTRYPOINT [ "java", "-jar", "spring-petclinic-2.4.2.war", "--server.port=8085"]
+ENTRYPOINT [ "java", "-jar", "spring-petclinic-2.4.2.war", "--server.port=8085" ]
 EOT
 touch /opt/docker/docker-image.yml
 cat <<EOT>> /opt/docker/docker-image.yml
@@ -416,22 +407,17 @@ cat <<EOT>> /opt/docker/docker-image.yml
  - hosts: localhost
   #root access to user
    become: true
-
    tasks:
    - name: login to dockerhub
      command: docker login -u cloudhight -p CloudHight_Admin123@
-
    - name: Create docker image from Pet Adoption war file
      command: docker build -t pet-adoption-image .
      args:
        chdir: /opt/docker
-
    - name: Add tag to image
      command: docker tag pet-adoption-image cloudhight/pet-adoption-image
-
    - name: Push image to docker hub
      command: docker push cloudhight/pet-adoption-image
-
    - name: Remove docker image from Ansible node
      command: docker rmi pet-adoption-image cloudhight/pet-adoption-image
      ignore_errors: yes
@@ -441,32 +427,27 @@ cat <<EOT>> /opt/docker/docker-container.yml
 ---
  - hosts: docker_host
    become: true
-
    tasks:
    - name: login to dockerhub
      command: docker login -u cloudhight -p CloudHight_Admin123@
-
    - name: Stop any container running
      command: docker stop pet-adoption-container
      ignore_errors: yes
-
    - name: Remove stopped container
      command: docker rm pet-adoption-container
      ignore_errors: yes
-
    - name: Remove docker image
      command: docker rmi cloudhight/pet-adoption-image
      ignore_errors: yes
-
    - name: Pull docker image from dockerhub
      command: docker pull cloudhight/pet-adoption-image
      ignore_errors: yes
-
    - name: Create container from pet adoption image
-     command: docker run -it -d --name pet-adoption-container -p 8080:8085 cloudhight/pet-adoption-image
+     command: docker run -it -d --name pet-adoption-container -p 8080:8080 cloudhight/pet-adoption-image
      ignore_errors: yes
 EOT
-cat << EOT > /opt/docker/newrelic.yml
+touch /opt/docker/newrelic.yml
+cat <<EOT>> /opt/docker/newrelic.yml
 ---
  - hosts: docker_host
    become: true
@@ -481,21 +462,22 @@ cat << EOT > /opt/docker/newrelic.yml
                      --pid=host \
                      -v "/:/host:ro" \
                      -v "/var/run/docker.sock:/var/run/docker.sock" \
-                     -e NRIA_LICENSE_KEY=c32625464fc4f6eae500b09fa88fe0c93434NRAL \
+                     -e NRIA_LICENSE_KEY=984fd9395376105d6273106ec42913a399a2NRAL \ 
                      newrelic/infrastructure:latest
 EOT
-  EOF
+EOF 
   tags = {
-    Name = "PAP_Ansible_Host"
+    Name = "PAPUST_Ansible"
   }
 }
 
 # 2 Create a Target Group for load balancer
-resource "aws_lb_target_group" "PAP-tglb" {
-  name     = "PAP-tglb"
-  port     = 8080
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.PAP_VPC.id
+resource "aws_lb_target_group" "PAPUST-tglb" {
+  name        = "PAPUST-tglb"
+  port        = 8080
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.PAPUST_VPC.id
+  target_type = "instance"
   health_check {
     healthy_threshold   = 3
     unhealthy_threshold = 10
@@ -504,166 +486,165 @@ resource "aws_lb_target_group" "PAP-tglb" {
   }
 }
 
-resource "aws_lb_target_group_attachment" "PAP-tg-attachment" {
-  target_group_arn = aws_lb_target_group.PAP-tglb.arn
-  target_id        = aws_instance.PAP_Docker_Host.id
+resource "aws_lb_target_group_attachment" "PAPUST-tg-attachment" {
+  target_group_arn = aws_lb_target_group.PAPUST-tglb.arn
+  target_id        = aws_instance.PAPUST_Docker_host.id
   port             = 8080
 }
 
 # 3 Create a load balancer lisener 
-resource "aws_lb_listener" "PAP-lb-listener" {
-  load_balancer_arn = aws_lb.PAP-alb.arn
+resource "aws_lb_listener" "PAPUST-lb-listener" {
+  load_balancer_arn = aws_lb.PAPUST-alb.arn
   port              = "8080"
   protocol          = "HTTP"
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.PAP-tglb.arn
+    target_group_arn = aws_lb_target_group.PAPUST-tglb.arn
   }
 }
 
 #create a application load balancer 
-resource "aws_lb" "PAP-alb" {
-  name                       = "PAP-alb"
+resource "aws_lb" "PAPUST-alb" {
+  name                       = "PAPUST-alb"
   internal                   = false
   load_balancer_type         = "application"
-  security_groups            = [aws_security_group.PAP_Docker_SG.id]
-  subnets                    = [aws_subnet.PAP_Public_SN1.id, aws_subnet.PAP_Public_SN2.id]
+  security_groups            = [aws_security_group.PAPUST_Docker_SG.id]
+  subnets                    = [aws_subnet.PAPUST_Public_SN1.id, aws_subnet.PAPUST_Public_SN2.id]
   enable_deletion_protection = false
   tags = {
     Enviroment = "production"
   }
 }
 
-# # Create AMI from docker instance
-# resource "aws_ami_from_instance" "PAP_Docker_ami" {
-#   name                    = "PAP-ami"
-#   source_instance_id      = aws_instance.PAP_Docker_Host.id
-#   snapshot_without_reboot = true
-#   depends_on = [
-#     aws_instance.PAP_Docker_Host
-#   ]
-# }
-# # Launch Configuration for autoscaling group = PAP-lc
-# resource "aws_launch_configuration" "PAP-lc" {
-#   name_prefix                 = "PAP-acplc"
-#   image_id                    = aws_ami_from_instance.PAP_Docker_ami.id
-#   instance_type               = "t2.micro"
-#   security_groups             = [aws_security_group.PAP_Docker_SG.id]
-#   associate_public_ip_address = true
-#   key_name                    = var.keypair
+# Create AMI from docker instance
+resource "aws_ami_from_instance" "PAPUST_Docker_ami" {
+  name                    = "PAPUST-ami"
+  source_instance_id      = aws_instance.PAPUST_Docker_host.id
+  snapshot_without_reboot = true
+  depends_on = [
+    aws_instance.PAPUST_Docker_host
+  ]
+}
+# Launch Configuration for autoscaling group = PAPUST-lc
+resource "aws_launch_configuration" "PAPUST-lc" {
+  name_prefix                 = "PAPUST-acplc"
+  image_id                    = aws_ami_from_instance.PAPUST_Docker_ami.id
+  instance_type               = "t2.micro"
+  security_groups             = [aws_security_group.PAPUST_Docker_SG.id]
+  associate_public_ip_address = true
+  key_name                    = var.keypair_name
+}
 
-# }
+# 6 Autoscaling Group = PAPUST-asg
+resource "aws_autoscaling_group" "PAPUST-asg" {
+  name                      = "PAPUST-asg"
+  desired_capacity          = 3
+  max_size                  = 4
+  min_size                  = 2
+  health_check_grace_period = 300
+  default_cooldown          = 60
+  health_check_type         = "ELB"
+  force_delete              = true
+  launch_configuration      = aws_launch_configuration.PAPUST-lc.name
+  vpc_zone_identifier       = [aws_subnet.PAPUST_Public_SN1.id, aws_subnet.PAPUST_Public_SN2.id]
+  target_group_arns         = ["${aws_lb_target_group.PAPUST-tglb.arn}"]
+  tag {
+    key                 = "Name"
+    value               = "PAPUST-asg"
+    propagate_at_launch = true
+  }
+}
 
-# # 6 Autoscaling Group = PAP-asg
-# resource "aws_autoscaling_group" "PAP-asg" {
-#   name                      = "PAP-asg"
-#   desired_capacity          = 3
-#   max_size                  = 4
-#   min_size                  = 2
-#   health_check_grace_period = 300
-#   default_cooldown          = 60
-#   health_check_type         = "ELB"
-#   force_delete              = true
-#   launch_configuration      = aws_launch_configuration.PAP-lc.name
-#   vpc_zone_identifier       = [aws_subnet.PAP_Public_SN1.id, aws_subnet.PAP_Public_SN2.id]
-#   target_group_arns         = ["${aws_lb_target_group.PAP-tglb.arn}"]
-#   tag {
-#     key                 = "Name"
-#     value               = "PAP-asg"
-#     propagate_at_launch = true
-#   }
-# }
+# Autoscaling Group Policy = PAPUST-asgpol
+resource "aws_autoscaling_policy" "PAPUST-asgpol" {
+  name                   = "PAPUST-asgpol"
+  policy_type            = "TargetTrackingScaling"
+  adjustment_type        = "ChangeInCapacity"
+  autoscaling_group_name = aws_autoscaling_group.PAPUST-asg.name
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 60.0
+  }
+}
 
-# # Autoscaling Group Policy = PAP-asgpol
-# resource "aws_autoscaling_policy" "PAP-asgpol" {
-#   name                   = "PAP-asgpol"
-#   policy_type            = "TargetTrackingScaling"
-#   adjustment_type        = "ChangeInCapacity"
-#   autoscaling_group_name = aws_autoscaling_group.PAP-asg.name
-#   target_tracking_configuration {
-#     predefined_metric_specification {
-#       predefined_metric_type = "ASGAverageCPUUtilization"
-#     }
-#     target_value = 60.0
-#   }
-# }
+# Backend Security group = PAPUST-Backend-sg
+resource "aws_security_group" "PAPUST_Backend_SG" {
+  name        = "PAPUST_Backend_SG"
+  description = "Enables SSH & MYSQL access"
+  vpc_id      = aws_vpc.PAPUST_VPC.id
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
+  }
+  ingress {
+    description = "MYSQL"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
+  }
+  egress {
+    description = "HTTP"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = {
+    Name = "PAPUST_Backend_SG"
+  }
+}
 
-# # Backend Security group = PAP-Backend-sg
-# resource "aws_security_group" "PAP_Backend_SG" {
-#   name        = "PAP_Backend_SG"
-#   description = "Enables SSH & MYSQL access"
-#   vpc_id      = aws_vpc.PAP_VPC.id
-#   ingress {
-#     description = "SSH"
-#     from_port   = 22
-#     to_port     = 22
-#     protocol    = "tcp"
-#     cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
-#   }
-#   ingress {
-#     description = "MYSQL"
-#     from_port   = 3306
-#     to_port     = 3306
-#     protocol    = "tcp"
-#     cidr_blocks = ["10.0.1.0/24", "10.0.3.0/24"]
-#   }
-#   egress {
-#     description = "HTTP"
-#     from_port   = 0
-#     to_port     = 0
-#     protocol    = "-1"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-#   tags = {
-#     Name = "PAP_Backend_SG"
-#   }
-# }
+# Create a multi AZ RDS database
+# DB subnet group = "PAPUST-db-sng
+resource "aws_db_subnet_group" "papust-db-sng" {
+  name       = "papust-db-sng"
+  subnet_ids = [aws_subnet.PAPUST_PrvSN1.id, aws_subnet.PAPUST_Private_SN2.id]
+  tags = {
+    Name = "papust-db-sng"
+  }
+}
 
-# # Create a multi AZ RDS database
-# # DB subnet group = "PAP-db-sng
-# resource "aws_db_subnet_group" "pap-db-sng" {
-#   name       = "pap-db-sng"
-#   subnet_ids = [aws_subnet.PAP_Private_SN1.id, aws_subnet.PAP_Private_SN2.id]
-#   tags = {
-#     Name = "pap-db-sng"
-#   }
-# }
-
-# # RDS database =pap-db
-# resource "aws_db_instance" "pap-db" {
-#   allocated_storage      = 20
-#   identifier             = var.identifier
-#   storage_type           = "gp2"
-#   engine                 = "mysql"
-#   engine_version         = "5.7"
-#   instance_class         = "db.t2.micro"
-#   multi_az               = true
-#   db_name                = var.db_name
-#   username               = var.db_username
-#   password               = var.db_passwd
-#   parameter_group_name   = "default.mysql5.7"
-#   skip_final_snapshot    = true
-#   db_subnet_group_name   = aws_db_subnet_group.pap-db-sng.id
-#   vpc_security_group_ids = [aws_security_group.PAP_Backend_SG.id]
-#   publicly_accessible    = false
-# }
+# RDS database =papust-db
+resource "aws_db_instance" "papust-db" {
+  allocated_storage      = 20
+  identifier             = var.identifier
+  storage_type           = "gp2"
+  engine                 = "mysql"
+  engine_version         = "5.7"
+  instance_class         = "db.t2.micro"
+  multi_az               = true
+  db_name                = var.db_name
+  username               = var.db_username
+  password               = var.db_passwd
+  parameter_group_name   = "default.mysql5.7"
+  skip_final_snapshot    = true
+  db_subnet_group_name   = aws_db_subnet_group.papust-db-sng.id
+  vpc_security_group_ids = [aws_security_group.PAPUST_Backend_SG.id]
+  publicly_accessible    = false
+}
 
 # Route 53 Hosted Zone
-resource "aws_route53_zone" "pap_zone" {
+resource "aws_route53_zone" "papust_zone" {
   name          = var.domain_name
   force_destroy = true
 }
 
 # Route 53 A Record
-resource "aws_route53_record" "PAP_Website" {
-  zone_id = aws_route53_zone.pap_zone.zone_id
+resource "aws_route53_record" "PAPUST_Website" {
+  zone_id = aws_route53_zone.papust_zone.zone_id
   name    = var.domain_name
   type    = "A"
-  # ttl     = "300" #- (Use when not associating route53 to a load balancer)
+  # ttl     = "300" - (Use when not associating route53 to a load balancer)
   # records = [aws_instance.PAP_Docker_Host.public_ip]
   alias {
-    name                   = aws_lb.PAP-alb.dns_name
-    zone_id                = aws_lb.PAP-alb.zone_id
+    name                   = aws_lb.PAPUST-alb.dns_name
+    zone_id                = aws_lb.PAPUST-alb.zone_id
     evaluate_target_health = false
   }
 }
